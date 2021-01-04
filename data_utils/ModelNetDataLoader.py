@@ -56,7 +56,7 @@ def farthest_point_sample(point, npoint):  # 最远点的提取
 #  制作这个类的重点在于生成一个列表，这个列表的元素为(path_sample x,lable x)的形式，重要的是生成路径与标签的列表
 #  也不一定需要制作路径的列表，可能制作路径的列表会比较不占内存，每次只把需要的数据加载进来而已。
 #  可以直接制作数据与标签的列表，可以按索引进行连接。
-class ModelNetDataLoader(Dataset):  # 自己的数据集类子类，需要集成父类  Dataset
+class ModelNetDataLoader(Dataset):  # 自己的数据集类子类，需要继承父类  Dataset
     def __init__(self, root, npoint=1024, split='train', uniform=False, normal_channel=True, cache_size=15000):
         self.root = root  # 根目录
         self.npoints = npoint  # 对原始数据集下采样至1024个点
@@ -91,23 +91,25 @@ class ModelNetDataLoader(Dataset):  # 自己的数据集类子类，需要集成
         self.cache = {}  # from index to (point_set, cls) tuple
 
     def _get_item(self, index):  # 这边的任务主要是写好读取一个样本例子的示范代码，包括数据的初步预处理，如对齐什么的，返回一个（样本，label）,
-        # 这边通过开辟了一个缓存区，使用的数据的时候先判断在不在缓存区里面，如果在则直接使用，不再的话再初始化载入，按理说也可以直接把所有的数据一次性加载进来，然后按照索引读取。
+        # 这边通过开辟了一个缓存区，使用的数据的时候先判断在不在缓存区里面，如果在则直接使用，不在的话再初始化载入
         if index in self.cache:
             point_set, cls = self.cache[index]
         else:
-            fn = self.datapath[index]  # 不大理解这边的意思
-            cls = self.classes[self.datapath[index][0]]
-            cls = np.array([cls]).astype(np.int32)
-            point_set = np.loadtxt(fn[1], delimiter=',').astype(
-                np.float32)  # 样本矩阵为（10000，6）格式表示每个样本具有10000个点云点，每一列的意义为x,y,z,r,g,b
+            fn = self.datapath[index]  # 找出index对应的datapath
+            cls = self.classes[self.datapath[index][0]]  # datapath[index][0]:得到的是shape_name，利用key来获取label值
+            cls = np.array([cls]).astype(np.int32)  # 将label封装成ndarray
+            # 读取数据集（10000，6）格式表示每个样本具有10000个点云点，每一行的意义为x,y,z,xyz法向量
+            point_set = np.loadtxt(fn[1], delimiter=',').astype(np.float32)
+            # 若需要法向量，则用最远距离采样
             if self.uniform:
                 point_set = farthest_point_sample(point_set, self.npoints)
+            # 若不需要则截取前1024个点
             else:
                 point_set = point_set[0:self.npoints, :]
 
             point_set[:, 0:3] = pc_normalize(point_set[:, 0:3])  # 将x，y，z 标准化
 
-            if not self.normal_channel:  # 应该是说不需要彩色信息的时候，只取前面的3列数据
+            if not self.normal_channel:  # 不需要法向量信息的时候，只取前面的3列数据
                 point_set = point_set[:, 0:3]
 
             if len(self.cache) < self.cache_size:
@@ -116,9 +118,11 @@ class ModelNetDataLoader(Dataset):  # 自己的数据集类子类，需要集成
         return point_set, cls
 
     # 自定义数据集类子类必须要有重载两个方法，否则会报错
+    # 返回整个数据集的大小
     def __len__(self):
         return len(self.datapath)
 
+    # 根据索引获取数据
     def __getitem__(self, index):
         return self._get_item(index)
 
