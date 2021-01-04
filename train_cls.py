@@ -65,6 +65,7 @@ def test(model, loader, num_class=40):
 
 
 def main(args):
+    # 定义输出log和输出console
     def log_string(str):
         logger.info(str)
         print(str)
@@ -130,10 +131,18 @@ def main(args):
     classifier = MODEL.get_model(num_class, normal_channel=args.normal).cuda()
     criterion = MODEL.get_loss().cuda()
 
+    # 间断后继续训练
     try:
+        # 读取pth文件，pth中都以字典存储
+        # 将每一层与它的对应参数建立映射关系.(如model的每一层的weights及偏置等等)储存
+        # (注意,只有那些参数可以训练的layer才会被保存到模型的state_dict中,如卷积层,线性层等等)
+        # 优化器对象Optimizer也有一个state_dict,它包含了优化器的状态以及被使用的超参数(如lr, momentum,weight_decay等)
         checkpoint = torch.load(str(experiment_dir) + '/checkpoints/best_model.pth')
+        # 读取epoch
         start_epoch = checkpoint['epoch']
+        # 冲checkpoint中读取model_state_dict，并且用load_state_dict恢复模型参数
         classifier.load_state_dict(checkpoint['model_state_dict'])
+        # 写入log
         log_string('Use pretrain model')
     except:
         log_string('No existing model, starting training from scratch...')
@@ -161,6 +170,7 @@ def main(args):
     mean_correct = []
 
     '''TRANING'''
+    # 输出log
     logger.info('Start training...')
     for epoch in range(start_epoch, args.epoch):
         log_string('Epoch %d (%d/%s):' % (global_epoch + 1, epoch + 1, args.epoch))
