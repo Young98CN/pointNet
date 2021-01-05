@@ -226,7 +226,9 @@ def shift_point_cloud(batch_data, shift_range=0.1):
           BxNx3 array, shifted batch of point clouds
     """
     B, N, C = batch_data.shape
+    # 得到均匀分布（B，3）数组
     shifts = np.random.uniform(-shift_range, shift_range, (B, 3))
+    # 将每一个B进行平移操作
     for batch_index in range(B):
         batch_data[batch_index, :, :] += shifts[batch_index, :]
     return batch_data
@@ -240,7 +242,9 @@ def random_scale_point_cloud(batch_data, scale_low=0.8, scale_high=1.25):
             BxNx3 array, scaled batch of point clouds
     """
     B, N, C = batch_data.shape
+    # 在scale_low，scale_high中取出B个scales
     scales = np.random.uniform(scale_low, scale_high, B)
+    # 更新scale，实际是更新了每个B中的点的坐标（整个点云的放大，缩小）
     for batch_index in range(B):
         batch_data[batch_index, :, :] *= scales[batch_index]
     return batch_data
@@ -248,9 +252,12 @@ def random_scale_point_cloud(batch_data, scale_low=0.8, scale_high=1.25):
 
 def random_point_dropout(batch_pc, max_dropout_ratio=0.875):
     ''' batch_pc: BxNx3 '''
+    # 在每一个batch size中搜索
     for b in range(batch_pc.shape[0]):
+        # 0，1随机采样
         dropout_ratio = np.random.random() * max_dropout_ratio  # 0~0.875
+        # 得到去除点的坐标
         drop_idx = np.where(np.random.random((batch_pc.shape[1])) <= dropout_ratio)[0]
         if len(drop_idx) > 0:
-            batch_pc[b, drop_idx, :] = batch_pc[b, 0, :]  # set to the first point
+            batch_pc[b, drop_idx, :] = batch_pc[b, 0, :]  # set to the first point，把去除的点用第一行的点补充
     return batch_pc

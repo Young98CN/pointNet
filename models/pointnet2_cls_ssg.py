@@ -1,6 +1,6 @@
 import torch.nn as nn
 import torch.nn.functional as F
-from pointnet_util import PointNetSetAbstraction
+from models.pointnet_util import PointNetSetAbstraction
 
 
 class get_model(nn.Module):

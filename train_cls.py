@@ -49,10 +49,16 @@ def test(model, loader, num_class=40):
         target = target[:, 0]
         points = points.transpose(2, 1)
         points, target = points.cuda(), target.cuda()
+        # eval模式不使用dropout和BN
         classifier = model.eval()
+        # 得到预测
         pred, _ = classifier(points)
+        # 得到最大预测值max(1)[1]返回维度1最大值的索引
         pred_choice = pred.data.max(1)[1]
+        # 在所有test数据中的种类进行遍历
         for cat in np.unique(target.cpu()):
+            # 找出每一类的accuracy
+            # pred_choice[target == cat] :
             classacc = pred_choice[target == cat].eq(target[target == cat].long().data).cpu().sum()
             class_acc[cat, 0] += classacc.item() / float(points[target == cat].size()[0])
             class_acc[cat, 1] += 1
@@ -179,20 +185,30 @@ def main(args):
         scheduler.step()
         # total迭代总次数，默认为迭代元素的长度，smoothing：0-1，0平均速度，1当前速度
         for batch_id, data in tqdm(enumerate(trainDataLoader, 0), total=len(trainDataLoader), smoothing=0.9):
+            # 从trainDataLoader中提取points：点集，target：对应的目标
             points, target = data
+            # 将tensor转化为numpy
             points = points.data.numpy()
+            '''数据增强模块'''
+            # 随机丢点
             points = provider.random_point_dropout(points)
+            # 随机范围
             points[:, :, 0:3] = provider.random_scale_point_cloud(points[:, :, 0:3])
+            # 随机移动点云
             points[:, :, 0:3] = provider.shift_point_cloud(points[:, :, 0:3])
+            # 转化为tensor
             points = torch.Tensor(points)
+            # 得到target
             target = target[:, 0]
-
+            # 输入要求（N，3）因此转置
             points = points.transpose(2, 1)
+            # 存入显存
             points, target = points.cuda(), target.cuda()
             # 梯度归零
             optimizer.zero_grad()
-
+            # 训练模式
             classifier = classifier.train()
+            # 得到pointnet_cls前向传播返回的两个数据
             pred, trans_feat = classifier(points)
             # loss
             loss = criterion(pred, target.long(), trans_feat)
@@ -208,7 +224,9 @@ def main(args):
         train_instance_acc = np.mean(mean_correct)
         log_string('Train Instance Accuracy: %f' % train_instance_acc)
 
+        # 在这个block（with torch.no_grad():）中不需要计算梯度（test模式）
         with torch.no_grad():
+            # classifier.eval()：在test模式中禁用dropout和BN
             instance_acc, class_acc = test(classifier.eval(), testDataLoader)
 
             if (instance_acc >= best_instance_acc):

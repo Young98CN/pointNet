@@ -100,7 +100,7 @@ class ModelNetDataLoader(Dataset):  # 自己的数据集类子类，需要继承
             cls = np.array([cls]).astype(np.int32)  # 将label封装成ndarray
             # 读取数据集（10000，6）格式表示每个样本具有10000个点云点，每一行的意义为x,y,z,xyz法向量
             point_set = np.loadtxt(fn[1], delimiter=',').astype(np.float32)
-            # 若需要法向量，则用最远距离采样
+            # 若需要法向量，则用最远距离采样，截取1024个点
             if self.uniform:
                 point_set = farthest_point_sample(point_set, self.npoints)
             # 若不需要则截取前1024个点
@@ -112,9 +112,10 @@ class ModelNetDataLoader(Dataset):  # 自己的数据集类子类，需要继承
             if not self.normal_channel:  # 不需要法向量信息的时候，只取前面的3列数据
                 point_set = point_set[:, 0:3]
 
-            if len(self.cache) < self.cache_size:
+            if len(self.cache) < self.cache_size:  # 若cache未满，则装入cache
                 self.cache[index] = (point_set, cls)
 
+        # 返回一个数据集中txt的点shape：ndarray(npoints,3)，和与之相对应的类别shape：ndarray(1,)
         return point_set, cls
 
     # 自定义数据集类子类必须要有重载两个方法，否则会报错
