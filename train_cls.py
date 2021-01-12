@@ -1,6 +1,6 @@
 """
-Author: Benny
-Date: Nov 2019
+Author: Young
+Date: January 2021
 """
 from data_utils.ModelNetDataLoader import ModelNetDataLoader
 import argparse
@@ -43,7 +43,12 @@ def parse_args():
 
 def test(model, loader, num_class=40):
     mean_correct = []
+    # shape （40，3）
+    # class_acc[cat, 0]：(预测正确个数/该类在batch size中所占的size)，循环完毕后是test中所有batch size中类别的平均accuracy
+    # class_acc[cat, 1]：记录该test数据集中每一个类别的个数
+    # class_acc[cat, 2]：所有输入的test数据集中一个类别正确的accuracy(正确个数 / batch size / test中一类的个数)
     class_acc = np.zeros((num_class, 3))
+    # 对batch size进行循环
     for j, data in tqdm(enumerate(loader), total=len(loader)):
         points, target = data
         target = target[:, 0]
@@ -55,18 +60,27 @@ def test(model, loader, num_class=40):
         pred, _ = classifier(points)
         # 得到最大预测值max(1)[1]返回维度1最大值的索引
         pred_choice = pred.data.max(1)[1]
-        # 在所有test数据中的种类进行遍历
+        # 在一个batch size中的数据根据种类（label）进行遍历
         for cat in np.unique(target.cpu()):
             # 找出每一类的accuracy
-            # pred_choice[target == cat] :
+            # pred_choice[target == cat] :找出某一类的预测值
+            # 将预测pred_choice和target（label）比较返回Boolean，将正确的求和算出预测正确的个数
             classacc = pred_choice[target == cat].eq(target[target == cat].long().data).cpu().sum()
+            # 记录一个batch size中类别的平均accuracy(预测正确个数 / 该类在batch size中所占的size)，循环完毕后是test中所有batch size中类别的平均accuracy
             class_acc[cat, 0] += classacc.item() / float(points[target == cat].size()[0])
+            # 记录该batch size中每一个类别的个数
             class_acc[cat, 1] += 1
+        # 统计所有batch size样本中正确的数量（包含所有类别，上面for只是统计每一个类别）
         correct = pred_choice.eq(target.long().data).cpu().sum()
+        # 记录一个batch size的平均正确率
         mean_correct.append(correct.item() / float(points.size()[0]))
+    # 计算test数据集中该类的平均accuracy
     class_acc[:, 2] = class_acc[:, 0] / class_acc[:, 1]
+    # 计算所有test数据集中每个单一类别类别的平均accuracy
     class_acc = np.mean(class_acc[:, 2])
+    # 计算所有类别的平均正确率
     instance_acc = np.mean(mean_correct)
+    # 返回所有类别的平均正确率instance_acc，和每个单一类别的平均正确率class_acc
     return instance_acc, class_acc
 
 
@@ -123,6 +137,7 @@ def main(args):
     # 读取TRAIN_DATASET，设置batch_size,shuffle=True，打乱顺序，num_workers多线程
     trainDataLoader = torch.utils.data.DataLoader(TRAIN_DATASET, batch_size=args.batch_size, shuffle=True,
                                                   num_workers=4)
+    # test数据集不需要打乱顺序
     testDataLoader = torch.utils.data.DataLoader(TEST_DATASET, batch_size=args.batch_size, shuffle=False, num_workers=4)
 
     '''MODEL LOADING'''
@@ -212,8 +227,11 @@ def main(args):
             pred, trans_feat = classifier(points)
             # loss
             loss = criterion(pred, target.long(), trans_feat)
+            # 得到最大值的index
             pred_choice = pred.data.max(1)[1]
+            # 将预测pred_choice和target（label）比较返回Boolean，将正确的求和算出预测正确的个数
             correct = pred_choice.eq(target.long().data).cpu().sum()
+            # correct.item()提取出tensor中的元素，将正确率其添加到mean_correct数组中
             mean_correct.append(correct.item() / float(points.size()[0]))
             # 反向传播
             loss.backward()

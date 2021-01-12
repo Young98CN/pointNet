@@ -154,6 +154,8 @@ def feature_transform_reguliarzer(trans):
         I = I.cuda()
 
     # 损失函数，将变换矩阵乘自身转置然后减单位阵，取结果的元素均值为损失函数，因为正交阵乘其转置为单位阵。
-    # A*(A'-I) = A*A'- A*I = I - A*I |  A’: 矩阵A的转置。TODO:???是不是写错了
-    loss = torch.mean(torch.norm(torch.bmm(trans, trans.transpose(2, 1) - I), dim=(1, 2)))
+    # A*A'- I | A’: 矩阵A的转置
+    # loss = torch.mean(torch.norm(torch.bmm(trans, trans.transpose(2, 1) - I), dim=(1, 2)))
+    temp = torch.bmm(trans, trans.transpose(2, 1)) - I
+    loss = torch.mean(torch.norm(temp, dim=[1, 2]))
     return loss
