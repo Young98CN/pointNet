@@ -20,11 +20,15 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = BASE_DIR
 sys.path.append(os.path.join(ROOT_DIR, 'models'))
 
-seg_classes = {'Earphone': [16, 17, 18], 'Motorbike': [30, 31, 32, 33, 34, 35], 'Rocket': [41, 42, 43], 'Car': [8, 9, 10, 11], 'Laptop': [28, 29], 'Cap': [6, 7], 'Skateboard': [44, 45, 46], 'Mug': [36, 37], 'Guitar': [19, 20, 21], 'Bag': [4, 5], 'Lamp': [24, 25, 26, 27], 'Table': [47, 48, 49], 'Airplane': [0, 1, 2, 3], 'Pistol': [38, 39, 40], 'Chair': [12, 13, 14, 15], 'Knife': [22, 23]}
-seg_label_to_cat = {} # {0:Airplane, 1:Airplane, ...49:Table}
+seg_classes = {'Earphone': [16, 17, 18], 'Motorbike': [30, 31, 32, 33, 34, 35], 'Rocket': [41, 42, 43],
+               'Car': [8, 9, 10, 11], 'Laptop': [28, 29], 'Cap': [6, 7], 'Skateboard': [44, 45, 46], 'Mug': [36, 37],
+               'Guitar': [19, 20, 21], 'Bag': [4, 5], 'Lamp': [24, 25, 26, 27], 'Table': [47, 48, 49],
+               'Airplane': [0, 1, 2, 3], 'Pistol': [38, 39, 40], 'Chair': [12, 13, 14, 15], 'Knife': [22, 23]}
+seg_label_to_cat = {}  # {0:Airplane, 1:Airplane, ...49:Table}
 for cat in seg_classes.keys():
     for label in seg_classes[cat]:
         seg_label_to_cat[label] = cat
+
 
 def to_categorical(y, num_classes):
     """ 1-hot encodes a tensor """
@@ -36,20 +40,23 @@ def to_categorical(y, num_classes):
 
 def parse_args():
     parser = argparse.ArgumentParser('Model')
-    parser.add_argument('--model', type=str, default='pointnet2_part_seg_msg', help='model name [default: pointnet2_part_seg_msg]')
+    parser.add_argument('--model', type=str, default='pointnet2_part_seg_msg',
+                        help='model name [default: pointnet2_part_seg_msg]')
     parser.add_argument('--batch_size', type=int, default=16, help='Batch Size during training [default: 16]')
-    parser.add_argument('--epoch',  default=251, type=int, help='Epoch to run [default: 251]')
+    parser.add_argument('--epoch', default=251, type=int, help='Epoch to run [default: 251]')
     parser.add_argument('--learning_rate', default=0.001, type=float, help='Initial learning rate [default: 0.001]')
     parser.add_argument('--gpu', type=str, default='0', help='GPU to use [default: GPU 0]')
     parser.add_argument('--optimizer', type=str, default='Adam', help='Adam or SGD [default: Adam]')
     parser.add_argument('--log_dir', type=str, default=None, help='Log path [default: None]')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='weight decay [default: 1e-4]')
-    parser.add_argument('--npoint', type=int,  default=2048, help='Point Number [default: 2048]')
-    parser.add_argument('--normal', action='store_true', default=False, help='Whether to use normal information [default: False]')
-    parser.add_argument('--step_size', type=int,  default=20, help='Decay step for lr decay [default: every 20 epochs]')
-    parser.add_argument('--lr_decay', type=float,  default=0.5, help='Decay rate for lr decay [default: 0.5]')
+    parser.add_argument('--npoint', type=int, default=2048, help='Point Number [default: 2048]')
+    parser.add_argument('--normal', action='store_true', default=False,
+                        help='Whether to use normal information [default: False]')
+    parser.add_argument('--step_size', type=int, default=20, help='Decay step for lr decay [default: every 20 epochs]')
+    parser.add_argument('--lr_decay', type=float, default=0.5, help='Decay rate for lr decay [default: 0.5]')
 
     return parser.parse_args()
+
 
 def main(args):
     def log_string(str):
@@ -87,14 +94,15 @@ def main(args):
     log_string('PARAMETER ...')
     log_string(args)
 
-    root = 'data/shapenetcore_partanno_segmentation_benchmark_v0_normal/'
+    root = 'E:/0dataset/shapenetcore_partanno_segmentation_benchmark_v0_normal'
 
-    TRAIN_DATASET = PartNormalDataset(root = root, npoints=args.npoint, split='trainval', normal_channel=args.normal)
-    trainDataLoader = torch.utils.data.DataLoader(TRAIN_DATASET, batch_size=args.batch_size,shuffle=True, num_workers=4)
-    TEST_DATASET = PartNormalDataset(root = root, npoints=args.npoint, split='test', normal_channel=args.normal)
-    testDataLoader = torch.utils.data.DataLoader(TEST_DATASET, batch_size=args.batch_size,shuffle=False, num_workers=4)
+    TRAIN_DATASET = PartNormalDataset(root=root, npoints=args.npoint, split='trainval', normal_channel=args.normal)
+    trainDataLoader = torch.utils.data.DataLoader(TRAIN_DATASET, batch_size=args.batch_size, shuffle=True,
+                                                  num_workers=4)
+    TEST_DATASET = PartNormalDataset(root=root, npoints=args.npoint, split='test', normal_channel=args.normal)
+    testDataLoader = torch.utils.data.DataLoader(TEST_DATASET, batch_size=args.batch_size, shuffle=False, num_workers=4)
     log_string("The number of training data is: %d" % len(TRAIN_DATASET))
-    log_string("The number of test data is: %d" %  len(TEST_DATASET))
+    log_string("The number of test data is: %d" % len(TEST_DATASET))
     num_classes = 16
     num_part = 50
     '''MODEL LOADING'''
@@ -104,7 +112,6 @@ def main(args):
 
     classifier = MODEL.get_model(num_part, normal_channel=args.normal).cuda()
     criterion = MODEL.get_loss().cuda()
-
 
     def weights_init(m):
         classname = m.__class__.__name__
@@ -150,7 +157,7 @@ def main(args):
     best_class_avg_iou = 0
     best_inctance_avg_iou = 0
 
-    for epoch in range(start_epoch,args.epoch):
+    for epoch in range(start_epoch, args.epoch):
         log_string('Epoch %d (%d/%s):' % (global_epoch + 1, epoch + 1, args.epoch))
         '''Adjust learning rate and BN momentum'''
         lr = max(args.learning_rate * (args.lr_decay ** (epoch // args.step_size)), LEARNING_RATE_CLIP)
@@ -162,16 +169,16 @@ def main(args):
         if momentum < 0.01:
             momentum = 0.01
         print('BN momentum updated to: %f' % momentum)
-        classifier = classifier.apply(lambda x: bn_momentum_adjust(x,momentum))
+        classifier = classifier.apply(lambda x: bn_momentum_adjust(x, momentum))
 
         '''learning one epoch'''
         for i, data in tqdm(enumerate(trainDataLoader), total=len(trainDataLoader), smoothing=0.9):
             points, label, target = data
             points = points.data.numpy()
-            points[:,:, 0:3] = provider.random_scale_point_cloud(points[:,:, 0:3])
-            points[:,:, 0:3] = provider.shift_point_cloud(points[:,:, 0:3])
+            points[:, :, 0:3] = provider.random_scale_point_cloud(points[:, :, 0:3])
+            points[:, :, 0:3] = provider.shift_point_cloud(points[:, :, 0:3])
             points = torch.Tensor(points)
-            points, label, target = points.float().cuda(),label.long().cuda(), target.long().cuda()
+            points, label, target = points.float().cuda(), label.long().cuda(), target.long().cuda()
             points = points.transpose(2, 1)
             optimizer.zero_grad()
             classifier = classifier.train()
@@ -199,7 +206,8 @@ def main(args):
                 for label in seg_classes[cat]:
                     seg_label_to_cat[label] = cat
 
-            for batch_id, (points, label, target) in tqdm(enumerate(testDataLoader), total=len(testDataLoader), smoothing=0.9):
+            for batch_id, (points, label, target) in tqdm(enumerate(testDataLoader), total=len(testDataLoader),
+                                                          smoothing=0.9):
                 cur_batch_size, NUM_POINT, _ = points.size()
                 points, label, target = points.float().cuda(), label.long().cuda(), target.long().cuda()
                 points = points.transpose(2, 1)
@@ -249,13 +257,12 @@ def main(args):
             test_metrics['class_avg_iou'] = mean_shape_ious
             test_metrics['inctance_avg_iou'] = np.mean(all_shape_ious)
 
-
         log_string('Epoch %d test Accuracy: %f  Class avg mIOU: %f   Inctance avg mIOU: %f' % (
-                 epoch+1, test_metrics['accuracy'],test_metrics['class_avg_iou'],test_metrics['inctance_avg_iou']))
+            epoch + 1, test_metrics['accuracy'], test_metrics['class_avg_iou'], test_metrics['inctance_avg_iou']))
         if (test_metrics['inctance_avg_iou'] >= best_inctance_avg_iou):
             logger.info('Save model...')
             savepath = str(checkpoints_dir) + '/best_model.pth'
-            log_string('Saving at %s'% savepath)
+            log_string('Saving at %s' % savepath)
             state = {
                 'epoch': epoch,
                 'train_acc': train_instance_acc,
@@ -274,12 +281,12 @@ def main(args):
             best_class_avg_iou = test_metrics['class_avg_iou']
         if test_metrics['inctance_avg_iou'] > best_inctance_avg_iou:
             best_inctance_avg_iou = test_metrics['inctance_avg_iou']
-        log_string('Best accuracy is: %.5f'%best_acc)
-        log_string('Best class avg mIOU is: %.5f'%best_class_avg_iou)
-        log_string('Best inctance avg mIOU is: %.5f'%best_inctance_avg_iou)
-        global_epoch+=1
+        log_string('Best accuracy is: %.5f' % best_acc)
+        log_string('Best class avg mIOU is: %.5f' % best_class_avg_iou)
+        log_string('Best inctance avg mIOU is: %.5f' % best_inctance_avg_iou)
+        global_epoch += 1
+
 
 if __name__ == '__main__':
     args = parse_args()
     main(args)
-

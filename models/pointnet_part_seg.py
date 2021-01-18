@@ -26,6 +26,7 @@ class get_model(nn.Module):
         self.bn4 = nn.BatchNorm1d(512)
         self.bn5 = nn.BatchNorm1d(2048)
         self.fstn = STNkd(k=128)
+        # 论文图有问题（根据作者代码来）
         self.convs1 = torch.nn.Conv1d(4944, 256, 1)
         self.convs2 = torch.nn.Conv1d(256, 256, 1)
         self.convs3 = torch.nn.Conv1d(256, 128, 1)
@@ -36,20 +37,22 @@ class get_model(nn.Module):
 
     def forward(self, point_cloud, label):
         B, D, N = point_cloud.size()
+        # T1（T-net） 输入对齐
         trans = self.stn(point_cloud)
+        # 交换2，1维度，为bmm做准备
         point_cloud = point_cloud.transpose(2, 1)
         if D > 3:
             point_cloud, feature = point_cloud.split(3, dim=2)
         point_cloud = torch.bmm(point_cloud, trans)
         if D > 3:
             point_cloud = torch.cat([point_cloud, feature], dim=2)
-
+        # 换回顺序
         point_cloud = point_cloud.transpose(2, 1)
 
         out1 = F.relu(self.bn1(self.conv1(point_cloud)))
         out2 = F.relu(self.bn2(self.conv2(out1)))
         out3 = F.relu(self.bn3(self.conv3(out2)))
-
+        # T2高维特征对齐
         trans_feat = self.fstn(out3)
         x = out3.transpose(2, 1)
         net_transformed = torch.bmm(x, trans_feat)
@@ -57,11 +60,15 @@ class get_model(nn.Module):
 
         out4 = F.relu(self.bn4(self.conv4(net_transformed)))
         out5 = self.bn5(self.conv5(out4))
-        out_max = torch.max(out5, 2, keepdim=True)[0]
-        out_max = out_max.view(-1, 2048)
+        # 对第二维度取最大值
+        out_max = torch.max(out5, 2, keepdim=True)[0]  # size:(B,N,1)
+        out_max = out_max.view(-1, 2048)  # size:(B,N)
 
-        out_max = torch.cat([out_max,label.squeeze(1)],1)
-        expand = out_max.view(-1, 2048+16, 1).repeat(1, 1, N)
+        # 按照列拼接
+        out_max = torch.cat([out_max, label.squeeze(1)], 1)
+        # 将第三维度复制N份，拼接网络输出的2048(2048+16拼接上了16个种类的one-hot) size:(B,2064,N)
+        expand = out_max.view(-1, 2048 + 16, 1).repeat(1, 1, N)
+        # 文中图有问题，根据作者代码来
         concat = torch.cat([expand, out1, out2, out3, out4, out5], 1)
         net = F.relu(self.bns1(self.convs1(concat)))
         net = F.relu(self.bns2(self.convs2(net)))
@@ -69,7 +76,7 @@ class get_model(nn.Module):
         net = self.convs4(net)
         net = net.transpose(2, 1).contiguous()
         net = F.log_softmax(net.view(-1, self.part_num), dim=-1)
-        net = net.view(B, N, self.part_num) # [B, N, 50]
+        net = net.view(B, N, self.part_num)  # [B, N, 50]
 
         return net, trans_feat
 

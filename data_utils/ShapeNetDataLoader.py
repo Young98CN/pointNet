@@ -4,7 +4,9 @@ import json
 import warnings
 import numpy as np
 from torch.utils.data import Dataset
+
 warnings.filterwarnings('ignore')
+
 
 def pc_normalize(pc):
     centroid = np.mean(pc, axis=0)
@@ -13,28 +15,33 @@ def pc_normalize(pc):
     pc = pc / m
     return pc
 
+
 class PartNormalDataset(Dataset):
-    def __init__(self,root = './data/shapenetcore_partanno_segmentation_benchmark_v0_normal', npoints=2500, split='train', class_choice=None, normal_channel=False):
+    def __init__(self, root='./data/shapenetcore_partanno_segmentation_benchmark_v0_normal', npoints=2500,
+                 split='train', class_choice=None, normal_channel=False):
         self.npoints = npoints
         self.root = root
         self.catfile = os.path.join(self.root, 'synsetoffset2category.txt')
         self.cat = {}
         self.normal_channel = normal_channel
 
-
         with open(self.catfile, 'r') as f:
             for line in f:
                 ls = line.strip().split()
+                # ls[0]:key(category),ls[1]:label
                 self.cat[ls[0]] = ls[1]
+        # 复制字典
         self.cat = {k: v for k, v in self.cat.items()}
-        self.classes_original = dict(zip(self.cat, range(len(self.cat))))
+        # 重新对字典的value赋值
+        self.classes_original = dict(zip(self.cat.keys(), range(len(self.cat))))
 
-        if not class_choice is  None:
-            self.cat = {k:v for k,v in self.cat.items() if k in class_choice}
+        if not class_choice is None:
+            self.cat = {k: v for k, v in self.cat.items() if k in class_choice}
         # print(self.cat)
 
         self.meta = {}
         with open(os.path.join(self.root, 'train_test_split', 'shuffled_train_file_list.json'), 'r') as f:
+            # set 去除重复的字段
             train_ids = set([str(d.split('/')[2]) for d in json.load(f)])
         with open(os.path.join(self.root, 'train_test_split', 'shuffled_val_file_list.json'), 'r') as f:
             val_ids = set([str(d.split('/')[2]) for d in json.load(f)])
@@ -46,6 +53,7 @@ class PartNormalDataset(Dataset):
             dir_point = os.path.join(self.root, self.cat[item])
             fns = sorted(os.listdir(dir_point))
             # print(fns[0][0:-4])
+            # 根据分割标记创建列表
             if split == 'trainval':
                 fns = [fn for fn in fns if ((fn[0:-4] in train_ids) or (fn[0:-4] in val_ids))]
             elif split == 'train':
@@ -60,6 +68,7 @@ class PartNormalDataset(Dataset):
 
             # print(os.path.basename(fns))
             for fn in fns:
+                # 分离文件名和扩展名（得到文件名）
                 token = (os.path.splitext(os.path.basename(fn))[0])
                 self.meta[item].append(os.path.join(dir_point, token + '.txt'))
 
@@ -84,7 +93,6 @@ class PartNormalDataset(Dataset):
 
         self.cache = {}  # from index to (point_set, cls, seg) tuple
         self.cache_size = 20000
-
 
     def __getitem__(self, index):
         if index in self.cache:
@@ -113,6 +121,3 @@ class PartNormalDataset(Dataset):
 
     def __len__(self):
         return len(self.datapath)
-
-
-
